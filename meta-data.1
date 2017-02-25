@@ -1,0 +1,94 @@
+.\"	$OpenBSD: mdoc.template,v 1.15 2014/03/31 00:09:54 dlg Exp $
+.\"
+.\" Copyright (c) 2017 Reyk Floeter <reyk@openbsd.org>
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.Dd $Mdocdate$
+.Dt META-DATA 1
+.Os
+.Sh NAME
+.Nm meta-data
+.Nd meta-data server for OpenBSD's virtual machine daemon
+.Sh SYNOPSIS
+.Nm meta-data
+.Ar bridge
+.Sh DESCRIPTION
+The
+.Nm
+FastCGI program provides a cloud-init datasource for OpenBSD's
+.Xr vmd 8
+that is compatible to Amazon EC2.
+.Bl -enum
+.It
+Create the
+.Nm
+directory and add the
+.Ar _meta-data
+user
+.Bd -literal -offset indent
+# mkdir -p /home/vm/meta-data
+# groupadd -g 787 _meta-data
+# useradd -g 787 -u 787 -k /var/empty -d /home/vm/meta-data \e
+	-s /sbin/nologin -c "meta-data user" _meta-data
+.Ed
+.It
+Use the
+.Xr kfcgi 8
+FastCGI server to run
+.Nm .
+Start it as root and with chroot disabled as
+.Nm
+will drop privileges by itself.
+The
+.Nm
+socket has to be owned by the "www" user of the web server.
+.Bd -literal -offset indent
+# kfcgi -u www -p / -- /usr/local/libexec/meta-data bridge0
+.Ed
+.It
+Configure and start
+.Xr httpd 8
+to handle
+.Nm
+requests.
+.Bd -literal -offset indent
+server "meta-data" {
+	listen on 0.0.0.0 port 80
+	location "/latest*" {
+		fastcgi socket "/run/httpd.sock"
+		root { "/", strip 1 }
+	}
+}
+.Ed
+.El
+.Sh FILES
+.Bl -tag -width "/home/vm/meta-data/openbsd.vmX" -compact
+.It Pa /home/vm/meta-data/openbsd.vm
+Directory containing meta-data for the virtual machine
+.Dq openbsd.vm .
+.It Pa user-data
+"user-data" file in the VM's meta-data directory.
+.It Pa openssh-key
+The SSH public key in the VM's meta-data directory.
+.El
+.\" .Sh EXAMPLES
+.Sh SEE ALSO
+.Xr kfcgi 8,
+.Xr vmd 8
+.\" .Sh STANDARDS
+.\" .Sh HISTORY
+.Sh AUTHORS
+.An Reyk Floeter Aq Mt reyk@openbsd.org
+.\" .Sh CAVEATS
+.\" .Sh BUGS
