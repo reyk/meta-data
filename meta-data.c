@@ -161,6 +161,16 @@ find_lease(const char *addr)
 	return (NULL);
 }
 
+/*
+ * Find the VM's name interface using a simple trick:
+ * - find the MAC by searching for the client's IP in the lease database
+ * - locate the VM's tap interface on the bridge that matches the MAC
+ * - get the tap interface description which encodes the VM id and name
+ *
+ * XXX This is a "hack" and will be replaced in the future when I fixed vmd:
+ * XXX - provide a control imsg in vmd to find a VM by MAC
+ * XXX - provide an option in vmd to prevent spoofing of foreign MACs
+ */
 int
 find_vm(int s, const char *name, struct vm *vm)
 {
@@ -201,29 +211,30 @@ find_vm(int s, const char *name, struct vm *vm)
 	}
 	free(inbuf);
 
-	if (ret == 0) {
-		memset(&ifr, 0, sizeof(ifr));
-		strlcpy(ifr.ifr_name, vm->vm_ifname, sizeof(ifr.ifr_name));
-		ifr.ifr_data = (caddr_t)&vm->vm_ifdescr;
+	if (ret != 0)
+		return (-1);
 
-		if (ioctl(s, SIOCGIFDESCR, &ifr) == 0 &&
-		    strlen(ifr.ifr_data)) {
-			vm->vm_instance_id = p = vm->vm_ifdescr;
-			if ((p = strchr(p, '-')) != NULL) {
-				*p++ = '\0';
-				vm->vm_interface_name = p;
-			}
-			if (p != NULL &&
-			    (p = strchr(p, '-')) != NULL) {
-				*p++ = '\0';
-				vm->vm_local_hostname = p;
-			}
+	memset(&ifr, 0, sizeof(ifr));
+	strlcpy(ifr.ifr_name, vm->vm_ifname, sizeof(ifr.ifr_name));
+	ifr.ifr_data = (caddr_t)&vm->vm_ifdescr;
+
+	if (ioctl(s, SIOCGIFDESCR, &ifr) == 0 &&
+	    strlen(ifr.ifr_data)) {
+		vm->vm_instance_id = p = vm->vm_ifdescr;
+		if ((p = strchr(p, '-')) != NULL) {
+			*p++ = '\0';
+			vm->vm_interface_name = p;
 		}
-		if (vm->vm_local_hostname == NULL)
-			ret = -1;
+		if (p != NULL &&
+		    (p = strchr(p, '-')) != NULL) {
+			*p++ = '\0';
+			vm->vm_local_hostname = p;
+		}
 	}
+	if (vm->vm_local_hostname == NULL)
+		return (-1);
 
-	return (ret);
+	return (0);
 }
 
 void
