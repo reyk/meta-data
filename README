@@ -46,7 +46,7 @@ FILES
 				     extension).
 
 SEE ALSO
-     kfcgi(8), kcgi, vmd(8)
+     kfcgi(8), kcgi(8), vmd(8)
 
      User-Data and Meta-Data,
      http://docs.cloudstack.apache.org/projects/cloudstack-administration/en/latest/virtual_machines.html#user-data-and-meta-data.
