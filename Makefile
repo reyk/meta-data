@@ -10,9 +10,11 @@ CFLAGS+=	-Wall -Wsign-compare -I/usr/local/include
 LDADD+=		-lkcgi -lkcgihtml -lz -L/usr/local/lib
 DPADD+=		${LIBKCGI} ${LIBKCGIHTML} ${LIBZ}
 
+MAN=		meta-data.8
+
 all: README
 
-README: ${.CURDIR}/meta-data.1
-	mandoc -T ascii ${.CURDIR}/meta-data.1 | col -b > README
+README: ${.CURDIR}/meta-data.8
+	mandoc -T ascii ${.CURDIR}/meta-data.8 | col -b > README
 
 .include <bsd.prog.mk>
