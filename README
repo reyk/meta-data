@@ -8,7 +8,8 @@ SYNOPSIS
 
 DESCRIPTION
      The meta-data FastCGI program provides a cloud-init datasource for
-     OpenBSD's vmd(8) that is compatible to Amazon EC2.
+     OpenBSD's vmd(8) that is compatible to Apache CloudStack and partially to
+     Amazon EC2.
 
      1.	  Create the meta-data directory and add the _meta-data user
 
@@ -43,7 +44,10 @@ FILES
 				     directory.
 
 SEE ALSO
-     kfcgi(8,) vmd(8)
+     kfcgi(8), kcgi, vmd(8)
+
+     User-Data and Meta-Data,
+     http://docs.cloudstack.apache.org/projects/cloudstack-administration/en/latest/virtual_machines.html#user-data-and-meta-data.
 
 AUTHORS
      Reyk Floeter <reyk@openbsd.org>

@@ -28,7 +28,7 @@ The
 .Nm
 FastCGI program provides a cloud-init datasource for OpenBSD's
 .Xr vmd 8
-that is compatible to Amazon EC2.
+that is compatible to Apache CloudStack and partially to Amazon EC2.
 .Bl -enum
 .It
 Create the
@@ -84,9 +84,14 @@ The SSH public key in the VM's meta-data directory.
 .El
 .\" .Sh EXAMPLES
 .Sh SEE ALSO
-.Xr kfcgi 8,
+.Xr kfcgi 8 ,
+.Xr kcgi ,
 .Xr vmd 8
 .\" .Sh STANDARDS
+.Rs
+.%U http://docs.cloudstack.apache.org/projects/cloudstack-administration/en/latest/virtual_machines.html#user-data-and-meta-data
+.%T User-Data and Meta-Data
+.Re
 .\" .Sh HISTORY
 .Sh AUTHORS
 .An Reyk Floeter Aq Mt reyk@openbsd.org
