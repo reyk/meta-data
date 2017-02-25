@@ -38,10 +38,12 @@ DESCRIPTION
 FILES
      /home/vm/meta-data/openbsd.vm   Directory containing meta-data for the
 				     virtual machine "openbsd.vm".
-     user-data			     "user-data" file in the VM's meta-data
-				     directory.
      openssh-key		     The SSH public key in the VM's meta-data
 				     directory.
+     user-data			     "user-data" file in the VM's meta-data
+				     directory.
+     username			     The login username (this is an
+				     extension).
 
 SEE ALSO
      kfcgi(8), kcgi, vmd(8)

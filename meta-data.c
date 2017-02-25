@@ -30,6 +30,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
+#include <netdb.h>
 #include <pwd.h>
 #include <errno.h>
 #include <err.h>
@@ -55,6 +56,7 @@ struct vm {
 	char			*vm_instance_id;
 	char			*vm_interface_name;
 	char			*vm_local_hostname;
+	const char		*vm_bridge;
 };
 
 enum pageids {
@@ -286,24 +288,65 @@ void
 page_meta_data(struct kreq *r, struct vm *vm)
 {
 	const char	*str = NULL;
-	const char	*names[] = {
-		"local-hostname",
-		"instance-id",
-		"public-keys/0/openssh-key"
+	struct lease	*l = vm->vm_lease;
+	char		 hostname[NI_MAXHOST];
+	enum		 dataids {
+		D_SERVICE_OFFERING,
+		D_AVAILABILITY_ZONE,
+		D_LOCAL_IPV4,
+		D_LOCAL_HOSTNAME,
+		D_PUBLIC_IPV4,
+		D_PUBLIC_HOSTNAME,
+		D_INSTANCE_ID,
+		D_OPENSSH_KEY,
+		D_USERNAME,
+		D__MAX
 	};
-	size_t		 namesz = 3;
+	const char	*datanames[] = {
+		"service-offering",
+		"availability-zone",
+		"local-ipv4",
+		"local-hostname",
+		"public-ipv4",
+		"public-hostname",
+		"instance-id",
+		"public-keys/0/openssh-key",
+		"username"
+	};
 
-	if (strcmp(names[0], r->path) == 0)
-		str = vm->vm_local_hostname;
-	else if (strcmp(names[1], r->path) == 0)
-		str = vm->vm_instance_id;
-	else if (strcmp(names[2], r->path) == 0) {
-		page_file_data(r, vm, "openssh-key");
-		return;
-	} else if (*r->path == '\0') {
-		page_index(r, names, namesz);
+	/* Directory listing */
+	if (*r->path == '\0') {
+		page_index(r, datanames, D__MAX);
 		return;
 	}
+
+	/* Supported options */
+	else if (strcmp(datanames[D_LOCAL_HOSTNAME], r->path) == 0)
+		str = vm->vm_local_hostname;
+	else if (strcmp(datanames[D_LOCAL_IPV4], r->path) == 0)
+		str = inet_ntoa(l->l_ipaddr);
+	else if (strcmp(datanames[D_OPENSSH_KEY], r->path) == 0) {
+		page_file_data(r, vm, "openssh-key");
+		return;
+	} else if (strcmp(datanames[D_INSTANCE_ID], r->path) == 0)
+		str = vm->vm_instance_id;
+
+	/* non-standard extensions */
+	else if (strcmp(datanames[D_USERNAME], r->path) == 0) {
+		page_file_data(r, vm, "username");
+		return;
+	}
+
+	/* The following values are just "faked" for compatibility */
+	else if (strcmp(datanames[D_PUBLIC_HOSTNAME], r->path) == 0) {
+		gethostname(hostname, sizeof(hostname));
+		str = hostname;
+	} else if (strcmp(datanames[D_PUBLIC_IPV4], r->path) == 0)
+		str = "127.0.0.1"; /* XXX */
+	else if (strcmp(datanames[D_AVAILABILITY_ZONE], r->path) == 0)
+		str = vm->vm_bridge; /* XXX */
+	else if (strcmp(datanames[D_SERVICE_OFFERING], r->path) == 0)
+		str = "OpenBSD"; /* XXX */
 
 	if (str == NULL) {
 		page_error(r, KHTTP_404);
@@ -391,6 +434,7 @@ main(int argc, char *argv[])
 		else {
 			memset(&vm, 0, sizeof(vm));
 			vm.vm_lease = l;
+			vm.vm_bridge = bridge;
 			if (find_vm(s, bridge, &vm) == -1)
 				page_error(&r, KHTTP_404);
 			else
