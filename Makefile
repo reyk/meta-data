@@ -10,6 +10,7 @@ CFLAGS+=	-Wall -Wsign-compare -I/usr/local/include
 LDADD+=		-lkcgi -lkcgihtml -lz -L/usr/local/lib
 DPADD+=		${LIBKCGI} ${LIBKCGIHTML} ${LIBZ}
 
-NOMAN=		yes
+README: ${.CURDIR}/meta-data.1
+	mandoc -T ascii ${.CURDIR}/meta-data.1 > README
 
 .include <bsd.prog.mk>

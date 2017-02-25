@@ -1,0 +1,51 @@
+META-DATA(1)                General Commands Manual               META-DATA(1)
+
+NNAAMMEE
+     mmeettaa--ddaattaa - meta-data server for OpenBSD's virtual machine daemon
+
+SSYYNNOOPPSSIISS
+     mmeettaa--ddaattaa _b_r_i_d_g_e
+
+DDEESSCCRRIIPPTTIIOONN
+     The mmeettaa--ddaattaa FastCGI program provides a cloud-init datasource for
+     OpenBSD's vmd(8) that is compatible to Amazon EC2.
+
+     1.   Create the mmeettaa--ddaattaa directory and add the ___m_e_t_a_-_d_a_t_a user
+
+                # mkdir -p /home/vm/meta-data
+                # groupadd -g 787 _meta-data
+                # useradd -g 787 -u 787 -k /var/empty -d /home/vm/meta-data \
+                        -s /sbin/nologin -c "meta-data user" _meta-data
+
+     2.   Use the kfcgi(8) FastCGI server to run mmeettaa--ddaattaa.  Start it as root
+          and with chroot disabled as mmeettaa--ddaattaa will drop privileges by
+          itself.  The mmeettaa--ddaattaa socket has to be owned by the "www" user of
+          the web server.
+
+                # kfcgi -u www -p / -- /usr/local/libexec/meta-data bridge0
+
+     3.   Configure and start httpd(8) to handle mmeettaa--ddaattaa requests.
+
+                server "meta-data" {
+                        listen on 0.0.0.0 port 80
+                        location "/latest*" {
+                                fastcgi socket "/run/httpd.sock"
+                                root { "/", strip 1 }
+                        }
+                }
+
+FFIILLEESS
+     _/_h_o_m_e_/_v_m_/_m_e_t_a_-_d_a_t_a_/_o_p_e_n_b_s_d_._v_m   Directory containing meta-data for the
+                                     virtual machine "openbsd.vm".
+     _u_s_e_r_-_d_a_t_a                       "user-data" file in the VM's meta-data
+                                     directory.
+     _o_p_e_n_s_s_h_-_k_e_y                     The SSH public key in the VM's meta-data
+                                     directory.
+
+SSEEEE AALLSSOO
+     kfcgi(8,) vmd(8)
+
+AAUUTTHHOORRSS
+     Reyk Floeter <_r_e_y_k_@_o_p_e_n_b_s_d_._o_r_g>
+
+OpenBSD 6.0                    February 25, 2017                   OpenBSD 6.0
