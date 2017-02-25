@@ -113,7 +113,7 @@ parse_leases(FILE *fp)
 
 	while (fgets(buf, sizeof(buf), fp) != NULL) {
 		k = buf + strspn(buf, " \t");
-		
+
 		if ((v = parse_value("lease ", k)) != NULL) {
 			if ((l = calloc(1, sizeof(*l))) == NULL)
 				err(1, "cannot add lease");
@@ -229,7 +229,7 @@ html_entry(struct khtmlreq *req, const char *name)
 {
 	khtml_attr(req, KELEM_A, KATTR_HREF, name, KATTR__MAX);
 	khtml_puts(req, name);
-	khtml_closeelem(req, 2);
+	khtml_closeelem(req, 1);
 	khtml_elem(req, KELEM_BR);
 	khtml_puts(req, "\n");
 	khtml_closeelem(req, 1);
