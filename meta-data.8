@@ -22,7 +22,7 @@
 .Nd meta-data server for OpenBSD's virtual machine daemon
 .Sh SYNOPSIS
 .Nm meta-data
-.Ar bridge
+.Op Ar bridge
 .Sh DESCRIPTION
 The
 .Nm
@@ -54,7 +54,7 @@ The
 .Nm
 socket has to be owned by the "www" user of the web server.
 .Bd -literal -offset indent
-# kfcgi -r -n 2 -u www -p / -- /usr/local/libexec/meta-data bridge0
+# kfcgi -r -n 2 -u www -p / -- /usr/local/libexec/meta-data
 .Ed
 .It
 Configure and start
@@ -71,6 +71,82 @@ server "meta-data" {
 	}
 }
 .Ed
+.El
+.Sh ATTRIBUTES
+.Nm
+serves a number of attributes, so-called meta-data items and optional
+user-data, that are specific for the requesting VM.
+The following attributes are supported:
+.Bl -tag -width Ds
+.It Cm meta-data/availability-zone
+This option is provided for compatibility.
+It includes the name of the
+.Ar bridge
+interface.
+.It Cm meta-data/instance-id
+The VM identifier in the format
+.Ic vm Ns Ar ID ,
+eg.
+.Ar vm1 .
+.It Cm meta-data/local-hostname
+The hostname of the guest VM,
+based on the VM name that was specified in
+.Xr vm.conf 5
+or by the
+.Xr vmctl 8
+.Ic start
+command.
+.It Cm meta-data/local-ipv4
+The IPv4 address of the guest VM.
+It is identical to the verified guest IP address address of the HTTP request.
+.It Cm meta-data/public-hostname
+This option is provided for compatibility.
+It includes the hostname of the
+.Xr vmd 8
+host where
+.Nm
+is running.
+.It Cm meta-data/public-ipv4
+This option is provided for compatibility.
+It currently includes the fixed string
+.Ar 127.0.0.1 .
+.It Cm meta-data/public-keys/0/openssh-key
+The SSH public key that is included in the
+.Pa openssh-key
+file in the VM's configuration directory.
+See the
+.Sx FILES
+section below.
+.Nm
+returns an
+.Dq HTTP 404 Not Found
+error if the file does not exist.
+.It Cm meta-data/service-offering
+This option is provided for compatibility.
+It includes the fixed string
+.Ar OpenBSD .
+.It Cm meta-data/username
+Returns the contents of the
+.Pa username
+file in the VM's configuration directory,
+or an
+.Dq HTTP 404 Not Found
+if it does not exist.
+This item is not available in other meta-data implementations.
+.It Cm user-data
+Returns the contents of the
+.Pa user-data
+file in the VM's configuration directory,
+or an
+.Dq HTTP 404 Not Found
+if it does not exist.
+The user-data file typically includes a configuration file or shell
+script of a type that is indicated by the
+.Dq shebang
+in the first line, for example
+.Ar #!/bin/sh
+or
+.Ar #cloud-config .
 .El
 .Sh FILES
 .Bl -tag -width "/home/vm/meta-data/openbsd.vmX" -compact
