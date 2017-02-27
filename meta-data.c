@@ -72,10 +72,21 @@ const char *pagenames[PAGE__MAX] = {
 	"user-data"
 };
 
-void	page_home(struct kreq *, struct vm *);
-void	page_meta_data(struct kreq *, struct vm *);
-void	page_user_data(struct kreq *, struct vm *);
-void	page_error(struct kreq *, int);
+void	 page_home(struct kreq *, struct vm *);
+void	 page_index(struct kreq *, const char *names[], size_t);
+void	 page_index_entry(struct kreq *, struct khtmlreq *, const char *);
+void	 page_file_data(struct kreq *, struct vm *vm, const char *);
+void	 page_meta_data(struct kreq *, struct vm *);
+void	 page_user_data(struct kreq *, struct vm *);
+void	 page_error(struct kreq *, int);
+
+char	*parse_value(const char *, char *);
+void	 parse_leases(FILE *);
+void	 free_leases(void);
+struct lease *
+	 find_lease(const char *);
+
+int	 find_vm(int, const char *, struct vm *);
 
 struct page {
 	enum pageids	 page_id;
@@ -238,7 +249,7 @@ find_vm(int s, const char *name, struct vm *vm)
 }
 
 void
-html_entry(struct kreq *r, struct khtmlreq *req, const char *name)
+page_index_entry(struct kreq *r, struct khtmlreq *req, const char *name)
 {
 	char	*s;
 
@@ -279,9 +290,9 @@ page_index(struct kreq *r, const char *names[], size_t namesz)
 	/* body */
 	khtml_elem(&req, KELEM_BODY);
 	if (*r->pagename)
-		html_entry(r, &req, "..");
+		page_index_entry(r, &req, "..");
 	for (i = 0; i < namesz; i++)
-		html_entry(r, &req, names[i]);
+		page_index_entry(r, &req, names[i]);
 
 	khtml_close(&req);
 }

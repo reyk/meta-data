@@ -3,7 +3,10 @@ SRCS=		meta-data.c
 
 BINDIR=		/usr/local/libexec
 
-CFLAGS+=	-Wall -Wsign-compare -I/usr/local/include
+CFLAGS+=	-Wall -I/usr/local/include
+CFLAGS+=	-Wstrict-prototypes -Wmissing-prototypes
+CFLAGS+=	-Wmissing-declarations -Wshadow -Wpointer-arith
+CFLAGS+=	-Wsign-compare -Wcast-qual
 
 #LDSTATIC=	${STATIC}
 
