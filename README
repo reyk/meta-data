@@ -23,7 +23,7 @@ DESCRIPTION
 	  itself.  The meta-data socket has to be owned by the "www" user of
 	  the web server.
 
-		# kfcgi -u www -p / -- /usr/local/libexec/meta-data bridge0
+		# kfcgi -r -n 2 -u www -p / -- /usr/local/libexec/meta-data bridge0
 
      3.	  Configure and start httpd(8) to handle meta-data requests.
 
