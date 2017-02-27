@@ -238,14 +238,21 @@ find_vm(int s, const char *name, struct vm *vm)
 }
 
 void
-html_entry(struct khtmlreq *req, const char *name)
+html_entry(struct kreq *r, struct khtmlreq *req, const char *name)
 {
-	khtml_attr(req, KELEM_A, KATTR_HREF, name, KATTR__MAX);
+	char	*s;
+
+	asprintf(&s, "%s%s%s%s%s",
+	    r->pname, r->pname[strlen(r->pname) - 1] == '/' ? "" : "/",
+	    r->pagename, *r->pagename ? "/" : "", name);
+
+	khtml_attr(req, KELEM_A, KATTR_HREF, s, KATTR__MAX);
 	khtml_puts(req, name);
 	khtml_closeelem(req, 1);
 	khtml_elem(req, KELEM_BR);
 	khtml_puts(req, "\n");
-	khtml_closeelem(req, 1);
+
+	free(s);
 }
 
 void
@@ -255,12 +262,26 @@ page_index(struct kreq *r, const char *names[], size_t namesz)
 	size_t		 i;
 
 	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_200]);
+	khttp_head(r, kresps[KRESP_CONTENT_TYPE],
+	    "%s", kmimetypes[KMIME_TEXT_HTML]);
 	khttp_body(r);
 
 	khtml_open(&req, r, KHTML_PRETTY);
 
+	/* HTML header */
+	khtml_elem(&req, KELEM_DOCTYPE);
+	khtml_elem(&req, KELEM_HTML);
+	khtml_elem(&req, KELEM_HEAD);
+	khtml_elem(&req, KELEM_TITLE);
+	khtml_puts(&req, "meta-data");
+	khtml_closeelem(&req, 2);
+
+	/* body */
+	khtml_elem(&req, KELEM_BODY);
+	if (*r->pagename)
+		html_entry(r, &req, "..");
 	for (i = 0; i < namesz; i++)
-		html_entry(&req, names[i]);
+		html_entry(r, &req, names[i]);
 
 	khtml_close(&req);
 }
@@ -286,6 +307,8 @@ page_file_data(struct kreq *r, struct vm *vm, const char *name)
 	}
 
 	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_200]);
+	khttp_head(r, kresps[KRESP_CONTENT_TYPE],
+	    "%s", kmimetypes[KMIME_TEXT_PLAIN]);
 	khttp_body(r);
 	do {
 		if ((len = fread(buf, 1, sizeof(buf), fp)) == 0)
@@ -365,6 +388,8 @@ page_meta_data(struct kreq *r, struct vm *vm)
 	}
 
 	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_200]);
+	khttp_head(r, kresps[KRESP_CONTENT_TYPE],
+	    "%s", kmimetypes[KMIME_TEXT_PLAIN]);
 	khttp_body(r);
 	khttp_puts(r, str);
 }
@@ -379,6 +404,8 @@ void
 page_error(struct kreq *r, int code)
 {
 	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[code]);
+	khttp_head(r, kresps[KRESP_CONTENT_TYPE],
+	    "%s", kmimetypes[KMIME_TEXT_PLAIN]);
 	khttp_body(r);
 	khttp_puts(r, khttps[code]);
 }
