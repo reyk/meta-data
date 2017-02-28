@@ -462,6 +462,17 @@ main(int argc, char *argv[])
 	    pagenames, PAGE__MAX, 0) != KCGI_OK)
 		errx(1, "khttp_fcgi_init");
 
+#if 0
+	/*
+	 * XXX The bridge ioctl prevents us from doing pledge(2) in
+	 * XXX the main process (kcgi's parser still runs under pledge),
+	 * XXX it can be turned on after switching from ioctl to an imsg
+	 * XXX with vmd.
+	 */
+	if (pledge("stdio recvfd tty", NULL) == -1)
+		err(1, "pledge");
+#endif
+
 	while (khttp_fcgi_parse(fcgi, &r) == KCGI_OK) {
 		parse_leases(fp);
 
