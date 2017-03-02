@@ -1,4 +1,4 @@
-META-DATA(8)-System Manager's Manual
+META-DATA(8) - System Manager's Manual
 
 # NAME
 
@@ -15,7 +15,7 @@ The
 **meta-data**
 FastCGI program provides a cloud-init datasource for
 OpenBSD's
-vmd( 8)
+vmd(8)
 that is compatible with Apache CloudStack
 and partially compatible with Amazon EC2.
 
@@ -25,13 +25,13 @@ and partially compatible with Amazon EC2.
 	"\_meta-data"
 	user:
 
-		\# mkdir -p /home/vm/meta-data
-		\# groupadd -g 787 \_meta-data
-		\# useradd -g 787 -u 787 -k /var/empty -d /home/vm/meta-data &#92;
-			\-s /sbin/nologin -c "meta-data user" \_meta-data
+		# mkdir -p /home/vm/meta-data
+		# groupadd -g 787 _meta-data
+		# useradd -g 787 -u 787 -k /var/empty -d /home/vm/meta-data \
+			-s /sbin/nologin -c "meta-data user" _meta-data
 
 2.	Use the
-	kfcgi( 8)
+	kfcgi(8)
 	FastCGI server to run
 	**meta-data**.
 	Start it as root, with chroot disabled, and
@@ -41,17 +41,17 @@ and partially compatible with Amazon EC2.
 	**meta-data**
 	socket has to be owned by the "www" user of the web server.
 
-		\# kfcgi -r -n 2 -u www -p / -- /usr/local/libexec/meta-data
+		# kfcgi -r -n 2 -u www -p / -- /usr/local/libexec/meta-data
 
 3.	Configure and start
-	httpd( 8)
+	httpd(8)
 	to handle
 	**meta-data**
 	requests:
 
 		server "meta-data" {
 			listen on 0.0.0.0 port 80
-			location "/latest\*" {
+			location "/latest*" {
 				fastcgi socket "/run/httpd.sock"
 				root { "/", strip 1 }
 			}
@@ -82,9 +82,9 @@ The following attributes are supported:
 
 >The hostname of the guest VM,
 >based on the VM name that was specified in
->vm.conf( 5)
+>vm.conf(5)
 >or by the
->vmctl( 8)
+>vmctl(8)
 >**start**
 >command.
 
@@ -97,7 +97,7 @@ The following attributes are supported:
 
 >This option is provided for compatibility.
 >It includes the hostname of the
->vmd( 8)
+>vmd(8)
 >host where
 >**meta-data**
 >is running.
@@ -174,9 +174,9 @@ The following attributes are supported:
 
 # SEE ALSO
 
-kcgi( 8),
-kfcgi( 8),
-vmd( 8)
+kcgi(8),
+kfcgi(8),
+vmd(8)
 
 *User-Data and Meta-Data*,
 http://docs.cloudstack.apache.org/projects/cloudstack-administration/en/latest/virtual\_machines.html#user-data-and-meta-data.
@@ -185,4 +185,4 @@ http://docs.cloudstack.apache.org/projects/cloudstack-administration/en/latest/v
 
 Reyk Floeter &lt;<reyk@openbsd.org>&gt;
 
-OpenBSD 6.0 - March 1, 2017
+OpenBSD 6.0 - March 2, 2017
