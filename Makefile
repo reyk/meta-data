@@ -15,9 +15,9 @@ DPADD+=		${LIBKCGI} ${LIBKCGIHTML} ${LIBZ}
 
 MAN=		meta-data.8
 
-all: README
+all: README.md
 
-README: ${.CURDIR}/meta-data.8
-	mandoc -T ascii ${.CURDIR}/meta-data.8 | col -b > README
+README.md: ${.CURDIR}/meta-data.8
+	mandoc -T markdown ${.CURDIR}/meta-data.8 > $@
 
 .include <bsd.prog.mk>
