@@ -66,111 +66,111 @@ The following attributes are supported:
 
 **meta-data/availability-zone**
 
->This option is provided for compatibility.
->It includes the name of the
->*bridge*
->interface.
+> This option is provided for compatibility.
+> It includes the name of the
+> *bridge*
+> interface.
 
 **meta-data/instance-id**
 
->The VM identifier in the format
->**vm**&zwnj;*ID*,
->e.g.
->*vm1*.
+> The VM identifier in the format
+> **vm**&zwnj;*ID*,
+> e.g.
+> *vm1*.
 
 **meta-data/local-hostname**
 
->The hostname of the guest VM,
->based on the VM name that was specified in
->vm.conf(5)
->or by the
->vmctl(8)
->**start**
->command.
+> The hostname of the guest VM,
+> based on the VM name that was specified in
+> vm.conf(5)
+> or by the
+> vmctl(8)
+> **start**
+> command.
 
 **meta-data/local-ipv4**
 
->The IPv4 address of the guest VM.
->It is identical to the verified guest IP address of the HTTP request.
+> The IPv4 address of the guest VM.
+> It is identical to the verified guest IP address of the HTTP request.
 
 **meta-data/public-hostname**
 
->This option is provided for compatibility.
->It includes the hostname of the
->vmd(8)
->host where
->**meta-data**
->is running.
+> This option is provided for compatibility.
+> It includes the hostname of the
+> vmd(8)
+> host where
+> **meta-data**
+> is running.
 
 **meta-data/public-ipv4**
 
->This option is provided for compatibility.
->It currently includes the fixed string
->"127.0.0.1".
+> This option is provided for compatibility.
+> It currently includes the fixed string
+> "127.0.0.1".
 
 **meta-data/public-keys/0/openssh-key**
 
->The SSH public key that is included in the
->*openssh-key*
->file in the VM's configuration directory.
->See the
->*FILES*
->section below.
->**meta-data**
->returns an
->"HTTP 404 Not Found"
->error if the file does not exist.
+> The SSH public key that is included in the
+> *openssh-key*
+> file in the VM's configuration directory.
+> See the
+> *FILES*
+> section below.
+> **meta-data**
+> returns an
+> "HTTP 404 Not Found"
+> error if the file does not exist.
 
 **meta-data/service-offering**
 
->This option is provided for compatibility.
->It includes the fixed string
->"OpenBSD".
+> This option is provided for compatibility.
+> It includes the fixed string
+> "OpenBSD".
 
 **meta-data/username**
 
->Returns the contents of the
->*username*
->file in the VM's configuration directory,
->or an
->"HTTP 404 Not Found"
->if it does not exist.
->This item is not available in other meta-data implementations.
+> Returns the contents of the
+> *username*
+> file in the VM's configuration directory,
+> or an
+> "HTTP 404 Not Found"
+> if it does not exist.
+> This item is not available in other meta-data implementations.
 
 **user-data**
 
->Returns the contents of the
->*user-data*
->file in the VM's configuration directory,
->or an
->"HTTP 404 Not Found"
->if it does not exist.
->The user-data file typically includes a configuration file or shell
->script of a type that is indicated by the
->"shebang"
->in the first line, for example
->"#!/bin/sh"
->or
->"#cloud-config".
+> Returns the contents of the
+> *user-data*
+> file in the VM's configuration directory,
+> or an
+> "HTTP 404 Not Found"
+> if it does not exist.
+> The user-data file typically includes a configuration file or shell
+> script of a type that is indicated by the
+> "shebang"
+> in the first line, for example
+> "#!/bin/sh"
+> or
+> "#cloud-config".
 
 # FILES
 
 */home/vm/meta-data/openbsd.vm*
 
->Directory containing meta-data for the virtual machine
->"openbsd.vm".
+> Directory containing meta-data for the virtual machine
+> "openbsd.vm".
 
 *openssh-key*
 
->The SSH public key in the VM's meta-data directory.
+> The SSH public key in the VM's meta-data directory.
 
 *user-data*
 
->"user-data" file in the VM's meta-data directory.
+> "user-data" file in the VM's meta-data directory.
 
 *username*
 
->The login username (this is an extension).
+> The login username (this is an extension).
 
 # SEE ALSO
 
@@ -179,10 +179,10 @@ kfcgi(8),
 vmd(8)
 
 *User-Data and Meta-Data*,
-http://docs.cloudstack.apache.org/projects/cloudstack-administration/en/latest/virtual\_machines.html#user-data-and-meta-data.
+<http://docs.cloudstack.apache.org/projects/cloudstack-administration/en/latest/virtual_machines.html#user-data-and-meta-data>.
 
 # AUTHORS
 
 Reyk Floeter &lt;<reyk@openbsd.org>&gt;
 
-OpenBSD 6.0 - March 2, 2017
+OpenBSD 6.0 - March 9, 2017
