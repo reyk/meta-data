@@ -37,7 +37,6 @@ The options are as follows:
 > *lease-file*.
 > The default is
 > */var/db/dhcpd.leases*.
-> **-**
 
 Use the following steps to run
 **meta-data**:
