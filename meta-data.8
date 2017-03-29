@@ -22,6 +22,8 @@
 .Nd meta-data server for OpenBSD's virtual machine daemon
 .Sh SYNOPSIS
 .Nm meta-data
+.Op Fl u Ar user
+.Op Fl l Ar lease-file
 .Op Ar bridge
 .Sh DESCRIPTION
 The
@@ -31,6 +33,25 @@ FastCGI program provides a cloud-init datasource for
 .Xr vmd 8
 that is compatible with Apache CloudStack
 and partially compatible with Amazon EC2.
+.Pp
+The options are as follows:
+.Bl -tag -width Ds
+.It Fl u Ar user
+Change the
+.Ar user
+name.
+The default is
+.Dq _meta-data .
+.It Fl u Ar lease-file
+Change the
+.Ar lease-file .
+The default is
+.Pa /var/db/dhcpd.leases .
+.Fl
+.El
+.Pp
+Use the following steps to run
+.Nm :
 .Bl -enum
 .It
 Create the
@@ -131,8 +152,8 @@ It includes the fixed string
 Returns the contents of the
 .Pa username
 file in the VM's configuration directory,
-or an
-.Dq HTTP 404 Not Found
+or
+.Dq root
 if it does not exist.
 This item is not available in other meta-data implementations.
 .It Cm user-data

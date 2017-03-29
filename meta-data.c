@@ -74,8 +74,7 @@ const char *pagenames[PAGE__MAX] = {
 
 void	 page_home(struct kreq *, struct vm *);
 void	 page_index(struct kreq *, const char *names[], size_t);
-void	 page_index_entry(struct kreq *, struct khtmlreq *, const char *);
-void	 page_file_data(struct kreq *, struct vm *vm, const char *);
+int	 page_file_data(struct kreq *, struct vm *vm, const char *);
 void	 page_meta_data(struct kreq *, struct vm *);
 void	 page_user_data(struct kreq *, struct vm *);
 void	 page_error(struct kreq *, int);
@@ -87,6 +86,8 @@ struct lease *
 	 find_lease(const char *);
 
 int	 find_vm(int, const char *, struct vm *);
+
+__dead void usage(void);
 
 struct page {
 	enum pageids	 page_id;
@@ -249,52 +250,19 @@ find_vm(int s, const char *name, struct vm *vm)
 }
 
 void
-page_index_entry(struct kreq *r, struct khtmlreq *req, const char *name)
-{
-	char	*s;
-
-	asprintf(&s, "%s%s%s%s%s",
-	    r->pname, r->pname[strlen(r->pname) - 1] == '/' ? "" : "/",
-	    r->pagename, *r->pagename ? "/" : "", name);
-
-	khtml_attr(req, KELEM_A, KATTR_HREF, s, KATTR__MAX);
-	khtml_puts(req, name);
-	khtml_closeelem(req, 1);
-	khtml_elem(req, KELEM_BR);
-	khtml_puts(req, "\n");
-
-	free(s);
-}
-
-void
 page_index(struct kreq *r, const char *names[], size_t namesz)
 {
-	struct khtmlreq	 req;
 	size_t		 i;
 
 	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_200]);
 	khttp_head(r, kresps[KRESP_CONTENT_TYPE],
-	    "%s", kmimetypes[KMIME_TEXT_HTML]);
+	    "%s", kmimetypes[KMIME_TEXT_PLAIN]);
 	khttp_body(r);
 
-	khtml_open(&req, r, KHTML_PRETTY);
-
-	/* HTML header */
-	khtml_elem(&req, KELEM_DOCTYPE);
-	khtml_elem(&req, KELEM_HTML);
-	khtml_elem(&req, KELEM_HEAD);
-	khtml_elem(&req, KELEM_TITLE);
-	khtml_puts(&req, "meta-data");
-	khtml_closeelem(&req, 2);
-
-	/* body */
-	khtml_elem(&req, KELEM_BODY);
-	if (*r->pagename)
-		page_index_entry(r, &req, "..");
-	for (i = 0; i < namesz; i++)
-		page_index_entry(r, &req, names[i]);
-
-	khtml_close(&req);
+	for (i = 0; i < namesz; i++) {
+		khttp_puts(r, names[i]);
+		khttp_puts(r, "\n");
+	}
 }
 
 void
@@ -303,7 +271,7 @@ page_home(struct kreq *r, struct vm *vm)
 	page_index(r, pagenames, PAGE__MAX);
 }
 
-void
+int
 page_file_data(struct kreq *r, struct vm *vm, const char *name)
 {
 	char		 path[PATH_MAX], buf[BUFSIZ];
@@ -312,10 +280,8 @@ page_file_data(struct kreq *r, struct vm *vm, const char *name)
 
 	snprintf(path, sizeof(path), "%s/%s",
 	    vm->vm_local_hostname, name);
-	if ((fp = fopen(path, "r")) == NULL) {
-		page_error(r, KHTTP_404);
-		return;
-	}
+	if ((fp = fopen(path, "r")) == NULL)
+		return (-1);
 
 	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_200]);
 	khttp_head(r, kresps[KRESP_CONTENT_TYPE],
@@ -327,6 +293,8 @@ page_file_data(struct kreq *r, struct vm *vm, const char *name)
 		khttp_write(r, buf, len);
 	} while (len == sizeof(buf));
 	fclose(fp);
+
+	return (0);
 }
 
 void
@@ -355,7 +323,7 @@ page_meta_data(struct kreq *r, struct vm *vm)
 		"public-ipv4",
 		"public-hostname",
 		"instance-id",
-		"public-keys/0/openssh-key",
+		"public-keys/",
 		"username"
 	};
 
@@ -370,16 +338,23 @@ page_meta_data(struct kreq *r, struct vm *vm)
 		str = vm->vm_local_hostname;
 	else if (strcmp(datanames[D_LOCAL_IPV4], r->path) == 0)
 		str = inet_ntoa(l->l_ipaddr);
-	else if (strcmp(datanames[D_OPENSSH_KEY], r->path) == 0) {
-		page_file_data(r, vm, "openssh-key");
-		return;
+	else if (strncmp(datanames[D_OPENSSH_KEY], r->path,
+	    strlen(datanames[D_OPENSSH_KEY])) == 0) {
+		if (strcmp(datanames[D_OPENSSH_KEY], r->path) == 0) {
+			str = "0=mykey";
+		} else {
+			if (page_file_data(r, vm, "openssh-key") == -1)
+				page_error(r, KHTTP_404);
+			return;
+		}
 	} else if (strcmp(datanames[D_INSTANCE_ID], r->path) == 0)
 		str = vm->vm_instance_id;
 
 	/* non-standard extensions */
 	else if (strcmp(datanames[D_USERNAME], r->path) == 0) {
-		page_file_data(r, vm, "username");
-		return;
+		if (page_file_data(r, vm, "username") == 0)
+			return;
+		str = "root";
 	}
 
 	/* The following values are just "faked" for compatibility */
@@ -408,7 +383,8 @@ page_meta_data(struct kreq *r, struct vm *vm)
 void
 page_user_data(struct kreq *r, struct vm *vm)
 {
-	page_file_data(r, vm, "user-data");
+	if (page_file_data(r, vm, "user-data") == -1)
+		page_error(r, KHTTP_404);
 }
 
 void
@@ -419,6 +395,16 @@ page_error(struct kreq *r, int code)
 	    "%s", kmimetypes[KMIME_TEXT_PLAIN]);
 	khttp_body(r);
 	khttp_puts(r, khttps[code]);
+}
+
+__dead void
+usage(void)
+{
+	extern char *__progname;
+
+	fprintf(stderr, "usage: %s [-u user] [-l lease-file]\n",
+	    __progname);
+	exit(1);
 }
 
 int
@@ -435,11 +421,32 @@ main(int argc, char *argv[])
 	void		(*cb)(struct kreq *, struct vm *);
 	struct passwd	*pw;
 	const char	*bridge = BRIDGE_NAME;
+	const char	*lease_file = LEASE_FILE;
+	const char	*data_user = DATA_USER;
+	int		 ch;
 
-	if ((fp = fopen(LEASE_FILE, "r")) == NULL)
+	while ((ch = getopt(argc, argv, "l:u:")) != -1) {
+		switch (ch) {
+		case 'l':
+			lease_file = optarg;
+			break;
+		case 'u':
+			data_user = optarg;
+			break;
+		default:
+			usage();
+		}
+	}
+	argc -= optind;
+	argv += optind;
+
+	if (argc > 1)
+		bridge = argv[1];
+
+	if ((fp = fopen(lease_file, "r")) == NULL)
 		err(1, "can't open lease file");
 
-	if ((pw = getpwnam(DATA_USER)) == NULL)
+	if ((pw = getpwnam(data_user)) == NULL)
 		err(1, "can't get user");
 
 	if (chroot(pw->pw_dir) == -1)
@@ -451,9 +458,6 @@ main(int argc, char *argv[])
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
 		err(1, "cannot drop privileges");
-
-	if (argc > 1)
-		bridge = argv[1];
 
 	if ((s = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
 		err(1, "can't open ioctl socket");

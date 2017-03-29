@@ -7,6 +7,8 @@ META-DATA(8) - System Manager's Manual
 # SYNOPSIS
 
 **meta-data**
+\[**-u**&nbsp;*user*]
+\[**-l**&nbsp;*lease-file*]
 \[*bridge*]
 
 # DESCRIPTION
@@ -18,6 +20,27 @@ OpenBSD's
 vmd(8)
 that is compatible with Apache CloudStack
 and partially compatible with Amazon EC2.
+
+The options are as follows:
+
+**-u** *user*
+
+> Change the
+> *user*
+> name.
+> The default is
+> "\_meta-data".
+
+**-u** *lease-file*
+
+> Change the
+> *lease-file*.
+> The default is
+> */var/db/dhcpd.leases*.
+> **-**
+
+Use the following steps to run
+**meta-data**:
 
 1.	Create the
 	*meta-data*
@@ -132,8 +155,8 @@ The following attributes are supported:
 > Returns the contents of the
 > *username*
 > file in the VM's configuration directory,
-> or an
-> "HTTP 404 Not Found"
+> or
+> "root"
 > if it does not exist.
 > This item is not available in other meta-data implementations.
 
@@ -179,10 +202,10 @@ kfcgi(8),
 vmd(8)
 
 *User-Data and Meta-Data*,
-<http://docs.cloudstack.apache.org/projects/cloudstack-administration/en/latest/virtual_machines.html#user-data-and-meta-data>.
+[http://docs.cloudstack.apache.org/projects/cloudstack-administration/en/latest/virtual\_machines.html#user-data-and-meta-data](http://docs.cloudstack.apache.org/projects/cloudstack-administration/en/latest/virtual_machines.html#user-data-and-meta-data).
 
 # AUTHORS
 
-Reyk Floeter &lt;<reyk@openbsd.org>&gt;
+Reyk Floeter &lt;[reyk@openbsd.org](mailto:reyk@openbsd.org)&gt;
 
-OpenBSD 6.0 - March 9, 2017
+OpenBSD 6.1 - March 30, 2017
