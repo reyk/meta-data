@@ -54,6 +54,7 @@ TAILQ_HEAD(leases, lease);
 struct metadata {
 	struct kreq		 env_r;
 
+	int			 env_rdomain;
 	const char		*env_bridge;
 	const char		*env_lease_file;
 	const char		*env_data_user;
@@ -254,6 +255,9 @@ find_l3(struct metadata *env, struct vm *vm)
 	struct sockaddr_inarp	*sin;
 	struct sockaddr_dl	*sdl;
 	int			 ret = -1;
+
+	/* Last argument is the rdomain */
+	mib[mcnt - 1] = env->env_rdomain;
 
 	for (;;) {
 		if (sysctl(mib, mcnt, buf, &sz, NULL, 0) == -1)
@@ -520,6 +524,7 @@ main(int argc, char *argv[])
 	env.env_lease_file = LEASE_FILE;
 	env.env_data_user = DATA_USER;
 	env.env_ioctlfd = -1;
+	env.env_rdomain = getrtable();
 
 	while ((ch = getopt(argc, argv, "23l:u:")) != -1) {
 		switch (ch) {
