@@ -72,11 +72,9 @@ Use the following steps to run
 	requests:
 
 		server "meta-data" {
-			listen on 0.0.0.0 port 80
-			location "/latest*" {
-				fastcgi socket "/run/httpd.sock"
-				root { "/", strip 1 }
-			}
+			listen on 169.254.169.254 port 80
+			fastcgi socket "/run/httpd.sock"
+			root { "/", strip 1 }
 		}
 
 # ATTRIBUTES
@@ -207,4 +205,4 @@ vmd(8)
 
 Reyk Floeter &lt;[reyk@openbsd.org](mailto:reyk@openbsd.org)&gt;
 
-OpenBSD 6.1 - March 30, 2017
+OpenBSD 6.1 - April 29, 2017
