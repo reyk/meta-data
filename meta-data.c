@@ -181,7 +181,6 @@ find_lease(const char *addr)
  *
  * XXX This is a "hack" and will be replaced in the future when I fixed vmd:
  * XXX - provide a control imsg in vmd to find a VM by MAC
- * XXX - provide an option in vmd to prevent spoofing of foreign MACs
  */
 int
 find_vm(int s, const char *name, struct vm *vm)
