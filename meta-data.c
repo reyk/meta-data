@@ -17,9 +17,11 @@
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/socket.h>
+#include <sys/sysctl.h>
 #include <sys/ioctl.h>
 
 #include <net/if.h>
+#include <net/if_dl.h>
 #include <netinet/in.h>
 #include <netinet/if_ether.h>
 #include <net/if_bridge.h>
@@ -47,16 +49,30 @@ struct lease {
 	struct in_addr		 l_ipaddr;
 	TAILQ_ENTRY(lease)	 l_entry;
 };
-TAILQ_HEAD(leases, lease) leases;
+TAILQ_HEAD(leases, lease);
+
+struct metadata {
+	struct kreq		 env_r;
+
+	const char		*env_bridge;
+	const char		*env_lease_file;
+	const char		*env_data_user;
+	int			 env_l2;
+	int			 env_l3;
+
+	FILE			*env_leasefp;
+	struct leases		 env_leases;
+	int			 env_ioctlfd;
+};
 
 struct vm {
+	struct in_addr		 vm_ipaddr;
 	struct lease		*vm_lease;
 	char			 vm_ifname[IFNAMSIZ];
 	char			 vm_ifdescr[IFDESCRSIZE];
 	char			*vm_instance_id;
 	char			*vm_interface_name;
 	char			*vm_local_hostname;
-	const char		*vm_bridge;
 };
 
 enum pageids {
@@ -72,26 +88,28 @@ const char *pagenames[PAGE__MAX] = {
 	"user-data"
 };
 
-void	 page_home(struct kreq *, struct vm *);
-void	 page_index(struct kreq *, const char *names[], size_t);
-int	 page_file_data(struct kreq *, struct vm *vm, const char *);
-void	 page_meta_data(struct kreq *, struct vm *);
-void	 page_user_data(struct kreq *, struct vm *);
-void	 page_error(struct kreq *, int);
+void	 page_home(struct metadata *, struct vm *);
+void	 page_index(struct metadata *, const char *names[], size_t);
+int	 page_file_data(struct metadata *, struct vm *vm, const char *);
+void	 page_meta_data(struct metadata *, struct vm *);
+void	 page_user_data(struct metadata *, struct vm *);
+void	 page_error(struct metadata *, int);
 
 char	*parse_value(const char *, char *);
-void	 parse_leases(FILE *);
-void	 free_leases(void);
+void	 parse_leases(struct metadata *);
+void	 free_leases(struct metadata *);
 struct lease *
-	 find_lease(const char *);
+	 find_lease(struct metadata *, struct vm *);
 
-int	 find_vm(int, const char *, struct vm *);
+int	 find_l2(struct metadata *, struct vm *);
+int	 find_l3(struct metadata *, struct vm *);
+int	 find_vm(struct metadata *, struct vm *);
 
 __dead void usage(void);
 
 struct page {
 	enum pageids	 page_id;
-	void		(*page_cb)(struct kreq *, struct vm *);
+	void		(*page_cb)(struct metadata *, struct vm *);
 } pages[] = {
 	{ PAGE_INDEX,		page_home },
 	{ PAGE_META_DATA,	page_meta_data },
@@ -115,17 +133,17 @@ parse_value(const char *s1, char *s2)
 }
 
 void
-parse_leases(FILE *fp)
+parse_leases(struct metadata *env)
 {
 	char		 buf[BUFSIZ], *k, *v;
 	struct lease	*l = NULL;
 
-	TAILQ_INIT(&leases);
+	TAILQ_INIT(&env->env_leases);
 
-	if (fseek(fp, 0, SEEK_SET) == -1)
+	if (fseek(env->env_leasefp, 0, SEEK_SET) == -1)
 		err(1, "can't rewind lease file");
 
-	while (fgets(buf, sizeof(buf), fp) != NULL) {
+	while (fgets(buf, sizeof(buf), env->env_leasefp) != NULL) {
 		k = buf + strspn(buf, " \t");
 
 		if ((v = parse_value("lease ", k)) != NULL) {
@@ -135,7 +153,7 @@ parse_leases(FILE *fp)
 			inet_pton(AF_INET, v, &l->l_ipaddr);
 
 			/* insert in reverse order */
-			TAILQ_INSERT_HEAD(&leases, l, l_entry);
+			TAILQ_INSERT_HEAD(&env->env_leases, l, l_entry);
 		} else if ((v =
 		    parse_value("hardware ethernet ", k)) != NULL) {
 			if (l == NULL)
@@ -146,28 +164,26 @@ parse_leases(FILE *fp)
 }
 
 void
-free_leases(void)
+free_leases(struct metadata *env)
 {
 	struct lease	*l, *next;
 
-	TAILQ_FOREACH_SAFE(l, &leases, l_entry, next) {
-		TAILQ_REMOVE(&leases, l, l_entry);
+	TAILQ_FOREACH_SAFE(l, &env->env_leases, l_entry, next) {
+		TAILQ_REMOVE(&env->env_leases, l, l_entry);
 		free(l);
 	}
 }
 
 struct lease *
-find_lease(const char *addr)
+find_lease(struct metadata *env, struct vm *vm)
 {
 	struct lease	*l;
-	struct in_addr	 ipaddr;
 
-	memset(&ipaddr, 0, sizeof(ipaddr));
-	inet_pton(AF_INET, addr, &ipaddr);
-
-	TAILQ_FOREACH(l, &leases, l_entry) {
-		if (ipaddr.s_addr == l->l_ipaddr.s_addr)
+	TAILQ_FOREACH(l, &env->env_leases, l_entry) {
+		if (vm->vm_ipaddr.s_addr == l->l_ipaddr.s_addr) {
+			vm->vm_lease = l;
 			return (l);
+		}
 	}
 
 	return (NULL);
@@ -183,26 +199,26 @@ find_lease(const char *addr)
  * XXX - provide a control imsg in vmd to find a VM by MAC
  */
 int
-find_vm(int s, const char *name, struct vm *vm)
+find_l2(struct metadata *env, struct vm *vm)
 {
 	struct ifbaconf	 ifbac;
 	struct ifbareq	*ifba;
-	struct ifreq	 ifr;
 	char		*inbuf = NULL, *p;
 	struct lease	*l = vm->vm_lease;
 	int		 ret = -1;
 	size_t		 i, len = BUFSIZ;
 
-	while (1) {
+	for (;;) {
 		ifbac.ifbac_len = len;
 		if ((p = realloc(inbuf, len)) == NULL)
 			err(1, "malloc");
 		ifbac.ifbac_buf = inbuf = p;
-		strlcpy(ifbac.ifbac_name, name, sizeof(ifbac.ifbac_name));
-		if (ioctl(s, SIOCBRDGRTS, &ifbac) < 0) {
+		strlcpy(ifbac.ifbac_name, env->env_bridge,
+		    sizeof(ifbac.ifbac_name));
+		if (ioctl(env->env_ioctlfd, SIOCBRDGRTS, &ifbac) < 0) {
 			if (errno == ENETDOWN)
 				return (-1);
-			err(1, "%s", name);
+			err(1, "%s", env->env_bridge);
 		}
 		if (ifbac.ifbac_len + sizeof(*ifba) < len)
 			break;
@@ -222,14 +238,85 @@ find_vm(int s, const char *name, struct vm *vm)
 	}
 	free(inbuf);
 
-	if (ret != 0)
-		return (-1);
+	return (ret);
+}
+
+int
+find_l3(struct metadata *env, struct vm *vm)
+{
+	int			 mib[] = {
+	    CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_FLAGS, RTF_LLINFO, 0
+	};
+	int			 mcnt = sizeof(mib) / sizeof(mib[0]);
+	size_t			 sz;
+	char			*end, *nbuf, *buf = NULL, *next;
+	struct rt_msghdr	*rtm;
+	struct sockaddr_inarp	*sin;
+	struct sockaddr_dl	*sdl;
+	int			 ret = -1;
+
+	for (;;) {
+		if (sysctl(mib, mcnt, buf, &sz, NULL, 0) == -1)
+			goto done;
+		if ((nbuf = realloc(buf, sz)) == NULL)
+			err(1, "realloc");
+		buf = nbuf;
+		if (sysctl(mib, mcnt, buf, &sz, NULL, 0) == -1) {
+			if (errno == ENOMEM)
+				continue;
+			goto done;
+		}
+		end = buf + sz;
+		break;
+	}
+
+	for (next = buf; next < end; next += rtm->rtm_msglen) {
+		rtm = (struct rt_msghdr *)next;
+		if (rtm->rtm_version != RTM_VERSION)
+			continue;
+		sin = (struct sockaddr_inarp *)(next + rtm->rtm_hdrlen);
+		sdl = (struct sockaddr_dl *)(sin + 1);
+		if (vm->vm_ipaddr.s_addr == sin->sin_addr.s_addr &&
+		    if_indextoname(sdl->sdl_index,
+		    (char *)vm->vm_ifname) != NULL) {
+			ret = 0;
+			break;
+		}
+	}
+
+	errno = ENOENT;
+ done:
+	free(buf);
+	return (ret);
+}
+
+int
+find_vm(struct metadata *env, struct vm *vm)
+{
+	struct ifreq	 ifr;
+	char		*p;
+	int		 found = -1;
+	int		 ret = -1;
+
+	/* First try to VM via L2 lookup in DHCP/bridge */
+	if (env->env_l2) {
+		parse_leases(env);
+		if (find_lease(env, vm) != NULL)
+			found = find_l2(env, vm);
+	}
+
+	/* Now try a L3 ARP lookup */
+	if (env->env_l3 && found == -1)
+		found = find_l3(env, vm);
+
+	if (found == -1)
+		goto done;
 
 	memset(&ifr, 0, sizeof(ifr));
 	strlcpy(ifr.ifr_name, vm->vm_ifname, sizeof(ifr.ifr_name));
 	ifr.ifr_data = (caddr_t)&vm->vm_ifdescr;
 
-	if (ioctl(s, SIOCGIFDESCR, &ifr) == 0 &&
+	if (ioctl(env->env_ioctlfd, SIOCGIFDESCR, &ifr) == 0 &&
 	    strlen(ifr.ifr_data)) {
 		vm->vm_instance_id = p = vm->vm_ifdescr;
 		if ((p = strchr(p, '-')) != NULL) {
@@ -243,14 +330,19 @@ find_vm(int s, const char *name, struct vm *vm)
 		}
 	}
 	if (vm->vm_local_hostname == NULL)
-		return (-1);
+		goto done;
 
-	return (0);
+	ret = 0;
+ done:
+	if (env->env_leasefp != NULL)
+		free_leases(env);
+	return (ret);
 }
 
 void
-page_index(struct kreq *r, const char *names[], size_t namesz)
+page_index(struct metadata *env, const char *names[], size_t namesz)
 {
+	struct kreq	*r = &env->env_r;
 	size_t		 i;
 
 	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_200]);
@@ -265,14 +357,15 @@ page_index(struct kreq *r, const char *names[], size_t namesz)
 }
 
 void
-page_home(struct kreq *r, struct vm *vm)
+page_home(struct metadata *env, struct vm *vm)
 {
-	page_index(r, pagenames, PAGE__MAX);
+	page_index(env, pagenames, PAGE__MAX);
 }
 
 int
-page_file_data(struct kreq *r, struct vm *vm, const char *name)
+page_file_data(struct metadata *env, struct vm *vm, const char *name)
 {
+	struct kreq	*r = &env->env_r;
 	char		 path[PATH_MAX], buf[BUFSIZ];
 	FILE		*fp = NULL;
 	size_t		 len;
@@ -297,8 +390,9 @@ page_file_data(struct kreq *r, struct vm *vm, const char *name)
 }
 
 void
-page_meta_data(struct kreq *r, struct vm *vm)
+page_meta_data(struct metadata *env, struct vm *vm)
 {
+	struct kreq	*r = &env->env_r;
 	const char	*str = NULL;
 	struct lease	*l = vm->vm_lease;
 	char		 hostname[NI_MAXHOST];
@@ -328,7 +422,7 @@ page_meta_data(struct kreq *r, struct vm *vm)
 
 	/* Directory listing */
 	if (*r->path == '\0') {
-		page_index(r, datanames, D__MAX);
+		page_index(env, datanames, D__MAX);
 		return;
 	}
 
@@ -342,8 +436,8 @@ page_meta_data(struct kreq *r, struct vm *vm)
 		if (strcmp(datanames[D_OPENSSH_KEY], r->path) == 0) {
 			str = "0=mykey";
 		} else {
-			if (page_file_data(r, vm, "openssh-key") == -1)
-				page_error(r, KHTTP_404);
+			if (page_file_data(env, vm, "openssh-key") == -1)
+				page_error(env, KHTTP_404);
 			return;
 		}
 	} else if (strcmp(datanames[D_INSTANCE_ID], r->path) == 0)
@@ -351,7 +445,7 @@ page_meta_data(struct kreq *r, struct vm *vm)
 
 	/* non-standard extensions */
 	else if (strcmp(datanames[D_USERNAME], r->path) == 0) {
-		if (page_file_data(r, vm, "username") == 0)
+		if (page_file_data(env, vm, "username") == 0)
 			return;
 		str = "root";
 	}
@@ -363,12 +457,12 @@ page_meta_data(struct kreq *r, struct vm *vm)
 	} else if (strcmp(datanames[D_PUBLIC_IPV4], r->path) == 0)
 		str = "127.0.0.1"; /* XXX */
 	else if (strcmp(datanames[D_AVAILABILITY_ZONE], r->path) == 0)
-		str = vm->vm_bridge; /* XXX */
+		str = env->env_bridge; /* XXX */
 	else if (strcmp(datanames[D_SERVICE_OFFERING], r->path) == 0)
 		str = "OpenBSD"; /* XXX */
 
 	if (str == NULL) {
-		page_error(r, KHTTP_404);
+		page_error(env, KHTTP_404);
 		return;
 	}
 
@@ -380,15 +474,16 @@ page_meta_data(struct kreq *r, struct vm *vm)
 }
 
 void
-page_user_data(struct kreq *r, struct vm *vm)
+page_user_data(struct metadata *env, struct vm *vm)
 {
-	if (page_file_data(r, vm, "user-data") == -1)
-		page_error(r, KHTTP_404);
+	if (page_file_data(env, vm, "user-data") == -1)
+		page_error(env, KHTTP_404);
 }
 
 void
-page_error(struct kreq *r, int code)
+page_error(struct metadata *env, int code)
 {
+	struct kreq	*r = &env->env_r;
 	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[code]);
 	khttp_head(r, kresps[KRESP_CONTENT_TYPE],
 	    "%s", kmimetypes[KMIME_TEXT_PLAIN]);
@@ -401,7 +496,7 @@ usage(void)
 {
 	extern char *__progname;
 
-	fprintf(stderr, "usage: %s [-u user] [-l lease-file]\n",
+	fprintf(stderr, "usage: %s [-23] [-u user] [-l lease-file]\n",
 	    __progname);
 	exit(1);
 }
@@ -409,28 +504,37 @@ usage(void)
 int
 main(int argc, char *argv[])
 {
-	struct lease	*l;
-	struct kreq	 r;
+	struct metadata	 env;
+	struct kreq	*r;
 	struct kfcgi	*fcgi;
 	struct page	*p = NULL;
 	struct vm	 vm;
 	size_t		 i;
-	FILE		*fp;
-	int		 s;
-	void		(*cb)(struct kreq *, struct vm *);
+	int		 valid;
+	void		(*cb)(struct metadata *, struct vm *);
 	struct passwd	*pw;
-	const char	*bridge = BRIDGE_NAME;
-	const char	*lease_file = LEASE_FILE;
-	const char	*data_user = DATA_USER;
 	int		 ch;
 
-	while ((ch = getopt(argc, argv, "l:u:")) != -1) {
+	memset(&env, 0, sizeof(env));
+	env.env_bridge = BRIDGE_NAME;
+	env.env_lease_file = LEASE_FILE;
+	env.env_data_user = DATA_USER;
+	env.env_ioctlfd = -1;
+
+	while ((ch = getopt(argc, argv, "23l:u:")) != -1) {
 		switch (ch) {
+		case '2':
+			env.env_l2 = 1;
+			break;
+		case '3':
+			env.env_l3 = 1;
+			break;
 		case 'l':
-			lease_file = optarg;
+			env.env_lease_file = optarg;
+			env.env_l2 = 1;
 			break;
 		case 'u':
-			data_user = optarg;
+			env.env_data_user = optarg;
 			break;
 		default:
 			usage();
@@ -439,13 +543,21 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	if (argc > 1)
-		bridge = argv[1];
+	if (argc > 1) {
+		env.env_bridge = argv[1];
+		env.env_l2 = 1;
+	}
 
-	if ((fp = fopen(lease_file, "r")) == NULL)
+	/* Default to L2 mode */
+	if (!env.env_l3)
+		env.env_l2 = 1;
+
+	/* Try to open dhcpd's lease file */
+	if ((env.env_l2) &&
+	    (env.env_leasefp = fopen(env.env_lease_file, "r")) == NULL)
 		err(1, "can't open lease file");
 
-	if ((pw = getpwnam(data_user)) == NULL)
+	if ((pw = getpwnam(env.env_data_user)) == NULL)
 		err(1, "can't get user");
 
 	if (chroot(pw->pw_dir) == -1)
@@ -458,7 +570,7 @@ main(int argc, char *argv[])
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
 		err(1, "cannot drop privileges");
 
-	if ((s = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
+	if ((env.env_ioctlfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
 		err(1, "can't open ioctl socket");
 
 	if (khttp_fcgi_init(&fcgi, NULL, 0,
@@ -472,45 +584,42 @@ main(int argc, char *argv[])
 	 * XXX it can be turned on after switching from ioctl to an imsg
 	 * XXX with vmd.
 	 */
-	if (pledge("stdio recvfd tty", NULL) == -1)
+	if (pledge("stdio recvfd tty route", NULL) == -1)
 		err(1, "pledge");
 #endif
 
-	while (khttp_fcgi_parse(fcgi, &r) == KCGI_OK) {
-		parse_leases(fp);
+	r = &env.env_r;
+	while (khttp_fcgi_parse(fcgi, r) == KCGI_OK) {
+		memset(&vm, 0, sizeof(vm));
+		valid = inet_pton(AF_INET, r->remote, &vm.vm_ipaddr);
 
-		cb = NULL;
-		l = find_lease(r.remote);
-
-		for (i = 0; l != NULL && i < PAGE__MAX; i++) {
+		for (i = 0, cb = NULL; valid > 0 && i < PAGE__MAX; i++) {
 			p = &pages[i];
-			if (p->page_id == r.page) {
+			if (p->page_id == r->page) {
 				cb = p->page_cb;
 				break;
 			}
 		}
 
-		if (l == NULL)
-			page_error(&r, KHTTP_401);
+		if (valid <= 0)
+			page_error(&env, KHTTP_401);
 		else if (cb == NULL)
-			page_error(&r, KHTTP_404);
+			page_error(&env, KHTTP_404);
 		else {
-			memset(&vm, 0, sizeof(vm));
-			vm.vm_lease = l;
-			vm.vm_bridge = bridge;
-			if (find_vm(s, bridge, &vm) == -1)
-				page_error(&r, KHTTP_404);
+			if (find_vm(&env, &vm) == -1)
+				page_error(&env, KHTTP_404);
 			else
-				(*cb)(&r, &vm);
+				(*cb)(&env, &vm);
 		}
 
-		khttp_free(&r);
-		free_leases();
+		khttp_free(r);
 	}
 
 	khttp_fcgi_free(fcgi);
-	fclose(fp);
-	close(s);
+	if (env.env_leasefp != NULL)
+		fclose(env.env_leasefp);
+	if (env.env_ioctlfd != -1)
+		close(env.env_ioctlfd);
 
 	return (EXIT_SUCCESS);
 }

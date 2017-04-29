@@ -22,6 +22,7 @@
 .Nd meta-data server for OpenBSD's virtual machine daemon
 .Sh SYNOPSIS
 .Nm meta-data
+.Op Fl 23
 .Op Fl u Ar user
 .Op Fl l Ar lease-file
 .Op Ar bridge
@@ -36,13 +37,39 @@ and partially compatible with Amazon EC2.
 .Pp
 The options are as follows:
 .Bl -tag -width Ds
+.It Fl 2
+Run in layer
+.Cm 2
+mode.
+.Nm
+will find the guest VM by its MAC address in the DHCP
+.Ar lease-file
+and the
+.Ar bridge
+cache.
+This is the default if layer
+.Cm 3
+mode is not specified.
+The default bridge name is
+.Dq bridge0 .
+.It Fl 3
+Run in layer
+.Cm 3
+mode.
+.Nm
+will find the guest VM by its IPv4 address in the ARP table.
+The layer
+.Cm 2
+and
+.Cm 3
+modes can be combined.
 .It Fl u Ar user
 Change the
 .Ar user
 name.
 The default is
 .Dq _meta-data .
-.It Fl u Ar lease-file
+.It Fl l Ar lease-file
 Change the
 .Ar lease-file .
 The default is
