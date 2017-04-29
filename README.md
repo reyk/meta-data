@@ -7,6 +7,7 @@ META-DATA(8) - System Manager's Manual
 # SYNOPSIS
 
 **meta-data**
+\[**-23**]
 \[**-u**&nbsp;*user*]
 \[**-l**&nbsp;*lease-file*]
 \[*bridge*]
@@ -23,6 +24,36 @@ and partially compatible with Amazon EC2.
 
 The options are as follows:
 
+**-2**
+
+> Run in layer
+> **2**
+> mode.
+> **meta-data**
+> will find the guest VM by its MAC address in the DHCP
+> *lease-file*
+> and the
+> *bridge*
+> cache.
+> This is the default if layer
+> **3**
+> mode is not specified.
+> The default bridge name is
+> "bridge0".
+
+**-3**
+
+> Run in layer
+> **3**
+> mode.
+> **meta-data**
+> will find the guest VM by its IPv4 address in the ARP table.
+> The layer
+> **2**
+> and
+> **3**
+> modes can be combined.
+
 **-u** *user*
 
 > Change the
@@ -31,7 +62,7 @@ The options are as follows:
 > The default is
 > "\_meta-data".
 
-**-u** *lease-file*
+**-l** *lease-file*
 
 > Change the
 > *lease-file*.
