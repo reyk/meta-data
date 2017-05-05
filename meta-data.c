@@ -434,7 +434,7 @@ page_meta_data(struct metadata *env, struct vm *vm)
 	else if (strcmp(datanames[D_LOCAL_HOSTNAME], r->path) == 0)
 		str = vm->vm_local_hostname;
 	else if (strcmp(datanames[D_LOCAL_IPV4], r->path) == 0)
-		str = inet_ntoa(l->l_ipaddr);
+		str = inet_ntoa(vm->vm_ipaddr);
 	else if (strncmp(datanames[D_OPENSSH_KEY], r->path,
 	    strlen(datanames[D_OPENSSH_KEY])) == 0) {
 		if (strcmp(datanames[D_OPENSSH_KEY], r->path) == 0) {
