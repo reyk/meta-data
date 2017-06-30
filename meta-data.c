@@ -453,7 +453,7 @@ page_meta_data(struct metadata *env, struct vm *vm)
 	else if (strcmp(datanames[D_USERNAME], r->path) == 0) {
 		if (page_file_data(env, vm, "username") == 0)
 			return;
-		str = "root";
+		str = "puffy";
 	}
 
 	/* The following values are just "faked" for compatibility */

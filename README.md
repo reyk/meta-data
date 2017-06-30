@@ -184,7 +184,7 @@ The following attributes are supported:
 > *username*
 > file in the VM's configuration directory,
 > or
-> "root"
+> "puffy"
 > if it does not exist.
 > This item is not available in other meta-data implementations.
 
@@ -236,4 +236,4 @@ vmd(8)
 
 Reyk Floeter &lt;[reyk@openbsd.org](mailto:reyk@openbsd.org)&gt;
 
-OpenBSD 6.1 - April 29, 2017
+OpenBSD 6.1 - June 30, 2017
