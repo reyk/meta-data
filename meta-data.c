@@ -17,16 +17,20 @@
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/socket.h>
+#include <sys/sockio.h>
 #include <sys/sysctl.h>
 #include <sys/ioctl.h>
+#include <sys/cdefs.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
+#include <net/route.h>
 #include <netinet/in.h>
 #include <netinet/if_ether.h>
 #include <net/if_bridge.h>
 #include <arpa/inet.h>
 
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -38,7 +42,6 @@
 #include <err.h>
 
 #include <kcgi.h>
-#include <kcgihtml.h>
 
 #define LEASE_FILE	"/var/db/dhcpd.leases"
 #define BRIDGE_NAME	"bridge0"
@@ -398,7 +401,6 @@ page_meta_data(struct metadata *env, struct vm *vm)
 {
 	struct kreq	*r = &env->env_r;
 	const char	*str = NULL;
-	struct lease	*l = vm->vm_lease;
 	char		 hostname[NI_MAXHOST];
 	enum		 dataids {
 		D_SERVICE_OFFERING,
